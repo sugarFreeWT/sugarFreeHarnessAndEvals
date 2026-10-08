@@ -1,0 +1,30 @@
+{
+  "name": "offline-agent-release",
+  "suite": "agent-regression",
+  "min_total_cases": 23,
+  "min_pass_rate": 1.0,
+  "replay_min_pass_rate": 1.0,
+  "require_replay": true,
+  "require_replay_case_parity": true,
+  "require_baseline": true,
+  "max_removed_cases": 0,
+  "max_new_failures": 0,
+  "max_average_steps_increase": 0.25,
+  "max_average_tool_calls_increase": 0.25,
+  "required_cases": [
+    "direct_answer_exact",
+    "calculator_addition",
+    "unknown_tool_recovery",
+    "model_error_is_explicit",
+    "workspace_modify_file",
+    "workspace_write_traversal_denied"
+  ],
+  "tag_min_pass_rates": {
+    "core": 1.0,
+    "tool": 1.0,
+    "recovery": 1.0,
+    "workspace": 1.0,
+    "security": 1.0,
+    "negative": 1.0
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "name": "deepseek-smoke",
+  "mode": "live",
+  "cases": [
+    {
+      "id": "direct_answer",
+      "prompt": "Reply with exactly the word ready.",
+      "expect": {"answer_contains": ["ready"], "max_tool_calls": 0, "max_steps": 2}
+    },
+    {
+      "id": "calculator_explicit",
+      "prompt": "Use the calculator tool to compute 7 * 13, then state the result.",
+      "expect": {"answer_contains": ["91"], "required_tools": ["calculator"], "max_tool_calls": 2, "max_steps": 4}
+    },
+    {
+      "id": "calculator_subtraction",
+      "prompt": "Use the calculator tool to compute 100 - 37 and report the answer.",
+      "expect": {"answer_contains": ["63"], "required_tools": ["calculator"], "max_tool_calls": 2, "max_steps": 4}
+    },
+    {
+      "id": "lookup_price",
+      "prompt": "Use lookup to find the apple_price and tell me the value.",
+      "expect": {"answer_contains": ["7"], "required_tools": ["lookup"], "max_tool_calls": 2, "max_steps": 4}
+    },
+    {
+      "id": "lookup_then_calculate",
+      "prompt": "Look up apple_price, then use the calculator to compute the cost of 13 apples.",
+      "expect": {"answer_contains": ["91"], "required_tools": ["lookup", "calculator"], "max_tool_calls": 3, "max_steps": 5}
+    },
+    {
+      "id": "multiple_lookups",
+      "prompt": "Use lookup for apple_price and banana_price, then report both values.",
+      "expect": {"answer_contains": ["7", "4"], "required_tools": ["lookup"], "max_tool_calls": 3, "max_steps": 4}
+    },
+    {
+      "id": "unknown_key_recovery",
+      "prompt": "Try lookup with the key missing_price. Explain what happened if it is unavailable.",
+      "expect": {"required_tools": ["lookup"], "max_tool_calls": 2, "max_steps": 4}
+    },
+    {
+      "id": "division_by_zero",
+      "prompt": "Use the calculator to evaluate 1 / 0. Explain the error safely.",
+      "expect": {"required_tools": ["calculator"], "max_tool_calls": 2, "max_steps": 4}
+    },
+    {
+      "id": "no_unnecessary_tool",
+      "prompt": "What is the capital of France? Answer directly without using a tool.",
+      "expect": {"answer_contains": ["Paris"], "max_tool_calls": 0, "max_steps": 2}
+    },
+    {
+      "id": "bounded_reasoning",
+      "prompt": "Answer concisely: what is 2 + 2? Do not call a tool unless necessary.",
+      "expect": {"answer_contains": ["4"], "max_tool_calls": 1, "max_steps": 3}
+    }
+  ]
+}
+

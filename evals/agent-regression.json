@@ -1,0 +1,379 @@
+{
+  "name": "agent-regression",
+  "mode": "scripted",
+  "cases": [
+    {
+      "id": "direct_answer_exact",
+      "tags": ["core", "answer"],
+      "prompt": "Reply with ready.",
+      "model_script": [{"content": "ready"}],
+      "expect": {
+        "answer_contains": ["ready"],
+        "max_tool_calls": 0,
+        "max_steps": 1,
+        "forbidden_events": ["tool.requested", "run.failed"]
+      }
+    },
+    {
+      "id": "direct_answer_without_unnecessary_tool",
+      "tags": ["core", "efficiency"],
+      "prompt": "Answer that the capital of France is Paris without tools.",
+      "model_script": [{"content": "The capital of France is Paris."}],
+      "expect": {
+        "answer_contains": ["Paris"],
+        "max_tool_calls": 0,
+        "max_steps": 1,
+        "forbidden_events": ["tool.requested"]
+      }
+    },
+    {
+      "id": "calculator_addition",
+      "tags": ["core", "tool"],
+      "prompt": "Use calculator to compute 18 + 24.",
+      "model_script": [
+        {"tool_calls": [{"id": "calc-add", "name": "calculator", "arguments": {"expression": "18 + 24"}}]},
+        {"content": "The result is 42."}
+      ],
+      "expect": {
+        "answer_contains": ["42"],
+        "required_tool_calls": [{"name": "calculator", "arguments": {"expression": "18 + 24"}}],
+        "required_events": ["tool.completed"],
+        "max_tool_calls": 1,
+        "max_steps": 2
+      }
+    },
+    {
+      "id": "calculator_precedence",
+      "tags": ["tool", "boundary"],
+      "prompt": "Use calculator to compute 2 + 3 * 4.",
+      "model_script": [
+        {"tool_calls": [{"id": "calc-order", "name": "calculator", "arguments": {"expression": "2 + 3 * 4"}}]},
+        {"content": "The result is 14."}
+      ],
+      "expect": {
+        "answer_contains": ["14"],
+        "required_tools": ["calculator"],
+        "required_events": ["tool.completed"],
+        "max_tool_calls": 1,
+        "max_steps": 2
+      }
+    },
+    {
+      "id": "lookup_success",
+      "tags": ["core", "tool"],
+      "prompt": "Look up banana_price.",
+      "model_script": [
+        {"tool_calls": [{"id": "lookup-banana", "name": "lookup", "arguments": {"key": "banana_price"}}]},
+        {"content": "banana_price is 4."}
+      ],
+      "expect": {
+        "answer_contains": ["4"],
+        "required_tool_calls": [{"name": "lookup", "arguments": {"key": "banana_price"}}],
+        "required_events": ["tool.completed"],
+        "max_tool_calls": 1,
+        "max_steps": 2
+      }
+    },
+    {
+      "id": "lookup_then_calculate",
+      "tags": ["tool", "multi_step"],
+      "prompt": "Look up apple_price and calculate the cost of 6 apples.",
+      "model_script": [
+        {"tool_calls": [{"id": "lookup-apple", "name": "lookup", "arguments": {"key": "apple_price"}}]},
+        {"tool_calls": [{"id": "calc-apples", "name": "calculator", "arguments": {"expression": "7 * 6"}}]},
+        {"content": "Six apples cost 42."}
+      ],
+      "expect": {
+        "answer_contains": ["42"],
+        "required_tool_calls": [
+          {"name": "lookup", "arguments": {"key": "apple_price"}},
+          {"name": "calculator", "arguments": {"expression": "7 * 6"}}
+        ],
+        "max_tool_calls": 2,
+        "max_steps": 3
+      }
+    },
+    {
+      "id": "parallel_lookups",
+      "tags": ["tool", "parallel"],
+      "prompt": "Look up apple_price and banana_price in one turn.",
+      "model_script": [
+        {"tool_calls": [
+          {"id": "lookup-a", "name": "lookup", "arguments": {"key": "apple_price"}},
+          {"id": "lookup-b", "name": "lookup", "arguments": {"key": "banana_price"}}
+        ]},
+        {"content": "Apple is 7 and banana is 4."}
+      ],
+      "expect": {
+        "answer_contains": ["7", "4"],
+        "required_tools": ["lookup"],
+        "max_tool_calls": 2,
+        "max_steps": 2
+      }
+    },
+    {
+      "id": "unknown_tool_recovery",
+      "tags": ["recovery", "negative"],
+      "prompt": "Recover after requesting an unavailable tool.",
+      "model_script": [
+        {"tool_calls": [{"id": "unknown", "name": "missing_tool", "arguments": {}}]},
+        {"content": "Recovered from the unavailable tool."}
+      ],
+      "expect": {
+        "answer_contains": ["Recovered"],
+        "required_tools": ["missing_tool"],
+        "required_events": ["tool.failed", "run.completed"],
+        "max_tool_calls": 1,
+        "max_steps": 2
+      }
+    },
+    {
+      "id": "missing_argument_recovery",
+      "tags": ["recovery", "schema", "negative"],
+      "prompt": "Recover after omitting calculator arguments.",
+      "model_script": [
+        {"tool_calls": [{"id": "bad-missing", "name": "calculator", "arguments": {}}]},
+        {"tool_calls": [{"id": "good-after-missing", "name": "calculator", "arguments": {"expression": "20 + 22"}}]},
+        {"content": "Recovered with result 42."}
+      ],
+      "expect": {
+        "answer_contains": ["42"],
+        "required_events": ["tool.failed", "tool.completed"],
+        "max_tool_calls": 2,
+        "max_steps": 3
+      }
+    },
+    {
+      "id": "extra_argument_recovery",
+      "tags": ["recovery", "schema", "negative"],
+      "prompt": "Recover after passing an unexpected calculator argument.",
+      "model_script": [
+        {"tool_calls": [{"id": "bad-extra", "name": "calculator", "arguments": {"expression": "40 + 2", "extra": true}}]},
+        {"tool_calls": [{"id": "good-after-extra", "name": "calculator", "arguments": {"expression": "40 + 2"}}]},
+        {"content": "Recovered with result 42."}
+      ],
+      "expect": {
+        "answer_contains": ["42"],
+        "required_events": ["tool.failed", "tool.completed"],
+        "max_tool_calls": 2,
+        "max_steps": 3
+      }
+    },
+    {
+      "id": "division_by_zero_recovery",
+      "tags": ["recovery", "tool", "negative"],
+      "prompt": "Use calculator for 1 / 0 and explain the failure.",
+      "model_script": [
+        {"tool_calls": [{"id": "divide-zero", "name": "calculator", "arguments": {"expression": "1 / 0"}}]},
+        {"content": "Division by zero is invalid."}
+      ],
+      "expect": {
+        "answer_contains": ["invalid"],
+        "required_events": ["tool.failed", "run.completed"],
+        "max_tool_calls": 1,
+        "max_steps": 2
+      }
+    },
+    {
+      "id": "unsupported_expression_recovery",
+      "tags": ["recovery", "security", "negative"],
+      "prompt": "Reject unsupported calculator code safely.",
+      "model_script": [
+        {"tool_calls": [{"id": "unsafe-expression", "name": "calculator", "arguments": {"expression": "__import__('os')"}}]},
+        {"content": "The unsupported expression was rejected safely."}
+      ],
+      "expect": {
+        "answer_contains": ["rejected"],
+        "required_events": ["tool.failed"],
+        "max_tool_calls": 1,
+        "max_steps": 2
+      }
+    },
+    {
+      "id": "missing_lookup_recovery",
+      "tags": ["recovery", "tool", "negative"],
+      "prompt": "Look up missing_price and recover if unavailable.",
+      "model_script": [
+        {"tool_calls": [{"id": "lookup-missing", "name": "lookup", "arguments": {"key": "missing_price"}}]},
+        {"content": "The requested key is unavailable."}
+      ],
+      "expect": {
+        "answer_contains": ["unavailable"],
+        "required_events": ["tool.failed", "run.completed"],
+        "max_tool_calls": 1,
+        "max_steps": 2
+      }
+    },
+    {
+      "id": "model_error_is_explicit",
+      "tags": ["model", "negative"],
+      "prompt": "Trigger the scripted model exhaustion boundary.",
+      "model_script": [],
+      "expect": {
+        "termination_reason": "model_error",
+        "required_events": ["model.failed", "run.failed"],
+        "max_tool_calls": 0,
+        "max_steps": 1
+      }
+    },
+    {
+      "id": "max_steps_is_enforced",
+      "tags": ["boundary", "tool", "negative"],
+      "prompt": "Keep requesting calculator until the harness stops.",
+      "agent_max_steps": 2,
+      "model_script": [
+        {"tool_calls": [{"id": "loop-1", "name": "calculator", "arguments": {"expression": "1 + 1"}}]},
+        {"tool_calls": [{"id": "loop-2", "name": "calculator", "arguments": {"expression": "1 + 1"}}]}
+      ],
+      "expect": {
+        "termination_reason": "max_steps",
+        "required_events": ["tool.completed", "run.failed"],
+        "max_tool_calls": 2,
+        "max_steps": 2
+      }
+    },
+    {
+      "id": "workspace_read_without_change",
+      "tags": ["workspace", "tool"],
+      "prompt": "Read note.txt without changing it.",
+      "workspace": {"files": {"note.txt": "keep me\n"}},
+      "model_script": [
+        {"tool_calls": [{"id": "read-stable", "name": "read_file", "arguments": {"path": "note.txt"}}]},
+        {"content": "The file contains keep me."}
+      ],
+      "expect": {
+        "answer_contains": ["keep me"],
+        "workspace_changes": [],
+        "required_events": ["tool.completed"],
+        "forbidden_events": ["workspace.changed"],
+        "max_tool_calls": 1,
+        "max_steps": 2
+      }
+    },
+    {
+      "id": "workspace_add_file",
+      "tags": ["workspace", "tool"],
+      "prompt": "Create result.txt with the requested content.",
+      "workspace": {"files": {}},
+      "model_script": [
+        {"tool_calls": [{"id": "write-add", "name": "write_file", "arguments": {"path": "result.txt", "content": "created\n"}}]},
+        {"content": "Created result.txt."}
+      ],
+      "expect": {
+        "workspace_changes": [{"path": "result.txt", "status": "added", "content": "created\n"}],
+        "required_events": ["tool.completed", "workspace.changed"],
+        "max_tool_calls": 1,
+        "max_steps": 2
+      }
+    },
+    {
+      "id": "workspace_modify_file",
+      "tags": ["workspace", "multi_step"],
+      "prompt": "Read config.txt and update its value.",
+      "workspace": {"files": {"config.txt": "mode=old\n"}},
+      "model_script": [
+        {"tool_calls": [{"id": "read-config", "name": "read_file", "arguments": {"path": "config.txt"}}]},
+        {"tool_calls": [{"id": "write-config", "name": "write_file", "arguments": {"path": "config.txt", "content": "mode=new\n"}}]},
+        {"content": "Updated config.txt."}
+      ],
+      "expect": {
+        "workspace_changes": [{"path": "config.txt", "status": "modified", "content": "mode=new\n"}],
+        "required_events": ["workspace.changed"],
+        "max_tool_calls": 2,
+        "max_steps": 3
+      }
+    },
+    {
+      "id": "workspace_add_nested_file",
+      "tags": ["workspace", "boundary"],
+      "prompt": "Create notes/result.txt.",
+      "workspace": {"files": {}},
+      "model_script": [
+        {"tool_calls": [{"id": "write-nested", "name": "write_file", "arguments": {"path": "notes/result.txt", "content": "nested\n"}}]},
+        {"content": "Created the nested file."}
+      ],
+      "expect": {
+        "workspace_changes": [{"path": "notes/result.txt", "status": "added", "content": "nested\n"}],
+        "required_events": ["workspace.changed"],
+        "max_tool_calls": 1,
+        "max_steps": 2
+      }
+    },
+    {
+      "id": "workspace_add_multiple_files",
+      "tags": ["workspace", "parallel"],
+      "prompt": "Create a.txt and b.txt in one turn.",
+      "workspace": {"files": {}},
+      "model_script": [
+        {"tool_calls": [
+          {"id": "write-a", "name": "write_file", "arguments": {"path": "a.txt", "content": "A\n"}},
+          {"id": "write-b", "name": "write_file", "arguments": {"path": "b.txt", "content": "B\n"}}
+        ]},
+        {"content": "Created both files."}
+      ],
+      "expect": {
+        "workspace_changes": [
+          {"path": "a.txt", "status": "added", "content": "A\n"},
+          {"path": "b.txt", "status": "added", "content": "B\n"}
+        ],
+        "required_events": ["workspace.changed"],
+        "max_tool_calls": 2,
+        "max_steps": 2
+      }
+    },
+    {
+      "id": "workspace_write_traversal_denied",
+      "tags": ["workspace", "security", "negative"],
+      "prompt": "Attempt a path traversal write and recover safely.",
+      "workspace": {"files": {}},
+      "model_script": [
+        {"tool_calls": [{"id": "write-traversal", "name": "write_file", "arguments": {"path": "../outside.txt", "content": "blocked"}}]},
+        {"content": "The unsafe write was blocked."}
+      ],
+      "expect": {
+        "answer_contains": ["blocked"],
+        "workspace_changes": [],
+        "required_events": ["tool.failed"],
+        "forbidden_events": ["workspace.changed"],
+        "max_tool_calls": 1,
+        "max_steps": 2
+      }
+    },
+    {
+      "id": "workspace_read_traversal_denied",
+      "tags": ["workspace", "security", "negative"],
+      "prompt": "Attempt a path traversal read and recover safely.",
+      "workspace": {"files": {"safe.txt": "safe\n"}},
+      "model_script": [
+        {"tool_calls": [{"id": "read-traversal", "name": "read_file", "arguments": {"path": "../secret.txt"}}]},
+        {"content": "The unsafe read was blocked."}
+      ],
+      "expect": {
+        "answer_contains": ["blocked"],
+        "workspace_changes": [],
+        "required_events": ["tool.failed"],
+        "forbidden_events": ["workspace.changed"],
+        "max_tool_calls": 1,
+        "max_steps": 2
+      }
+    },
+    {
+      "id": "workspace_missing_file_recovery",
+      "tags": ["workspace", "recovery", "negative"],
+      "prompt": "Read a missing file and report the failure safely.",
+      "workspace": {"files": {}},
+      "model_script": [
+        {"tool_calls": [{"id": "read-missing", "name": "read_file", "arguments": {"path": "missing.txt"}}]},
+        {"content": "The file does not exist."}
+      ],
+      "expect": {
+        "answer_contains": ["does not exist"],
+        "workspace_changes": [],
+        "required_events": ["tool.failed", "run.completed"],
+        "forbidden_events": ["workspace.changed"],
+        "max_tool_calls": 1,
+        "max_steps": 2
+      }
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sugar-free-harness-and-evals"
+version = "0.1.0"
+description = "A small, inspectable agent harness with trajectory-first evaluations."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+sugarfree-eval = "sugarfree.evals.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

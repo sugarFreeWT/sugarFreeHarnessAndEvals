@@ -1,0 +1,189 @@
+{
+  "name": "architecture-smoke",
+  "cases": [
+    {
+      "id": "direct_answer",
+      "prompt": "Reply with the word ready.",
+      "model_script": [{"content": "ready", "usage": {"input_tokens": 5, "output_tokens": 1}}],
+      "expect": {
+        "answer_contains": ["ready"],
+        "max_tool_calls": 0,
+        "max_steps": 1
+      }
+    },
+    {
+      "id": "calculator_call",
+      "prompt": "What is 7 * 13? Use the calculator.",
+      "model_script": [
+        {"tool_calls": [{"id": "calc-1", "name": "calculator", "arguments": {"expression": "7 * 13"}}]},
+        {"content": "The result is 91."}
+      ],
+      "expect": {
+        "answer_contains": ["91"],
+        "required_tools": ["calculator"],
+        "required_tool_calls": [
+          {"name": "calculator", "arguments": {"expression": "7 * 13"}}
+        ],
+        "max_tool_calls": 1,
+        "max_steps": 2
+      }
+    },
+    {
+      "id": "lookup_then_calculate",
+      "prompt": "Look up the apple price and calculate the cost of 13 apples.",
+      "model_script": [
+        {"tool_calls": [{"id": "lookup-1", "name": "lookup", "arguments": {"key": "apple_price"}}]},
+        {"tool_calls": [{"id": "calc-2", "name": "calculator", "arguments": {"expression": "7 * 13"}}]},
+        {"content": "13 apples cost 91."}
+      ],
+      "expect": {
+        "answer_contains": ["91"],
+        "required_tools": ["lookup", "calculator"],
+        "required_tool_calls": [
+          {"name": "lookup", "arguments": {"key": "apple_price"}},
+          {"name": "calculator", "arguments": {"expression": "7 * 13"}}
+        ],
+        "max_tool_calls": 2,
+        "max_steps": 3
+      }
+    },
+    {
+      "id": "unknown_tool_recovery",
+      "prompt": "Recover from selecting a missing tool.",
+      "model_script": [
+        {"tool_calls": [{"id": "missing-1", "name": "missing", "arguments": {}}]},
+        {"content": "I recovered from the missing tool."}
+      ],
+      "expect": {
+        "answer_contains": ["recovered"],
+        "required_tools": ["missing"],
+        "max_tool_calls": 1,
+        "max_steps": 2
+      }
+    },
+    {
+      "id": "invalid_arguments_recovery",
+      "prompt": "Recover from invalid calculator arguments.",
+      "model_script": [
+        {"tool_calls": [{"id": "bad-1", "name": "calculator", "arguments": {}}]},
+        {"tool_calls": [{"id": "good-1", "name": "calculator", "arguments": {"expression": "8 + 5"}}]},
+        {"content": "Recovered; the answer is 13."}
+      ],
+      "expect": {
+        "answer_contains": ["13"],
+        "required_tools": ["calculator"],
+        "max_tool_calls": 2,
+        "max_steps": 3
+      }
+    },
+    {
+      "id": "tool_execution_error_recovery",
+      "prompt": "Recover from division by zero.",
+      "model_script": [
+        {"tool_calls": [{"id": "zero-1", "name": "calculator", "arguments": {"expression": "1 / 0"}}]},
+        {"content": "Division by zero is undefined."}
+      ],
+      "expect": {
+        "answer_contains": ["undefined"],
+        "required_tools": ["calculator"],
+        "max_tool_calls": 1,
+        "max_steps": 2
+      }
+    },
+    {
+      "id": "parallel_tool_calls",
+      "prompt": "Look up two prices in one model turn.",
+      "model_script": [
+        {
+          "tool_calls": [
+            {"id": "lookup-a", "name": "lookup", "arguments": {"key": "apple_price"}},
+            {"id": "lookup-b", "name": "lookup", "arguments": {"key": "banana_price"}}
+          ]
+        },
+        {"content": "Apple is 7 and banana is 4."}
+      ],
+      "expect": {
+        "answer_contains": ["7", "4"],
+        "required_tools": ["lookup"],
+        "max_tool_calls": 2,
+        "max_steps": 2
+      }
+    },
+    {
+      "id": "workspace_add",
+      "prompt": "Write exactly ready followed by a newline to result.txt.",
+      "workspace": {"files": {}},
+      "model_script": [
+        {
+          "tool_calls": [
+            {
+              "id": "write-new-1",
+              "name": "write_file",
+              "arguments": {"path": "result.txt", "content": "ready\n"}
+            }
+          ]
+        },
+        {"content": "Created result.txt."}
+      ],
+      "expect": {
+        "required_tool_calls": [
+          {"name": "write_file", "arguments": {"path": "result.txt", "content": "ready\n"}}
+        ],
+        "workspace_changes": [
+          {"path": "result.txt", "status": "added", "content": "ready\n"}
+        ],
+        "max_tool_calls": 1,
+        "max_steps": 2
+      }
+    },
+    {
+      "id": "workspace_modify",
+      "prompt": "Read note.txt and replace its contents with exactly new value followed by a newline.",
+      "workspace": {"files": {"note.txt": "old value\n"}},
+      "model_script": [
+        {
+          "tool_calls": [
+            {"id": "read-note-1", "name": "read_file", "arguments": {"path": "note.txt"}}
+          ]
+        },
+        {
+          "tool_calls": [
+            {
+              "id": "write-note-1",
+              "name": "write_file",
+              "arguments": {"path": "note.txt", "content": "new value\n"}
+            }
+          ]
+        },
+        {"content": "Updated note.txt."}
+      ],
+      "expect": {
+        "required_tool_calls": [
+          {"name": "read_file", "arguments": {"path": "note.txt"}},
+          {"name": "write_file", "arguments": {"path": "note.txt", "content": "new value\n"}}
+        ],
+        "workspace_changes": [
+          {"path": "note.txt", "status": "modified", "content": "new value\n"}
+        ],
+        "max_tool_calls": 2,
+        "max_steps": 3
+      }
+    },
+    {
+      "id": "max_steps_guard",
+      "prompt": "Keep requesting tools until the harness stops you.",
+      "agent_max_steps": 2,
+      "model_script": [
+        {"tool_calls": [{"id": "loop-1", "name": "calculator", "arguments": {"expression": "1 + 1"}}]},
+        {"tool_calls": [{"id": "loop-2", "name": "calculator", "arguments": {"expression": "1 + 1"}}]},
+        {"content": "This response must never be reached."}
+      ],
+      "expect": {
+        "termination_reason": "max_steps",
+        "required_tools": ["calculator"],
+        "max_tool_calls": 2,
+        "max_steps": 2
+      }
+    }
+  ]
+}

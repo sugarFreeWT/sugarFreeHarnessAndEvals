@@ -1,0 +1,35 @@
+{
+  "suite": "agent-regression",
+  "summary": {
+    "passed_cases": 23,
+    "total_cases": 23,
+    "pass_rate": 1.0,
+    "average_steps": 2.0434782608695654,
+    "average_tool_calls": 1.173913043478261
+  },
+  "case_results": {
+    "direct_answer_exact": true,
+    "direct_answer_without_unnecessary_tool": true,
+    "calculator_addition": true,
+    "calculator_precedence": true,
+    "lookup_success": true,
+    "lookup_then_calculate": true,
+    "parallel_lookups": true,
+    "unknown_tool_recovery": true,
+    "missing_argument_recovery": true,
+    "extra_argument_recovery": true,
+    "division_by_zero_recovery": true,
+    "unsupported_expression_recovery": true,
+    "missing_lookup_recovery": true,
+    "model_error_is_explicit": true,
+    "max_steps_is_enforced": true,
+    "workspace_read_without_change": true,
+    "workspace_add_file": true,
+    "workspace_modify_file": true,
+    "workspace_add_nested_file": true,
+    "workspace_add_multiple_files": true,
+    "workspace_write_traversal_denied": true,
+    "workspace_read_traversal_denied": true,
+    "workspace_missing_file_recovery": true
+  }
+}
